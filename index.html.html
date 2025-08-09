@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sri Lanka Travel Route</title>
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <style>
+    /* Fullscreen responsive map */
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+    /* Custom car icon styling */
+    .car-icon {
+      font-size: 24px;
+      line-height: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  ></script>
+  <!-- We implement our own simple animation logic; plugin is not required -->
+  <script>
+    // Define the itinerary: each stop includes a name and coordinates (latitude, longitude)
+    const stops = [
+      {
+        name: "Bandaranaike International Airport",
+        coords: [7.18111, 79.88361],
+      },
+      { name: "Colombo", coords: [6.93444, 79.84278] },
+      { name: "Stafford Bungalow, Ragala", coords: [7.00778, 80.85389] },
+      { name: "The Grand Hotel, Nuwara Eliya", coords: [6.96854, 80.76454] },
+      { name: "Trincomalee", coords: [8.56667, 81.23333] },
+      { name: "Habarana Village", coords: [8.0354, 80.7492] },
+      { name: "Kandalama Hotel", coords: [7.8695469, 80.7065506] },
+      { name: "Bentota Beach Hotel (Benth Hotel)", coords: [6.424722, 79.996944] },
+      { name: "Colombo (return)", coords: [6.93444, 79.84278] },
+      {
+        name: "Return to Bandaranaike International Airport",
+        coords: [7.18111, 79.88361],
+      },
+    ];
+
+    // Initialize the map centered at the first stop with an appropriate zoom level
+    const map = L.map("map", { zoomSnap: 0.5 }).setView(stops[0].coords, 7);
+
+    // Add OpenStreetMap tiles for a clean, modern look
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 18,
+    }).addTo(map);
+
+    // Add markers and popups for each stop along the route
+    stops.forEach((stop) => {
+      const marker = L.marker(stop.coords).addTo(map);
+      marker.bindPopup(`<strong>${stop.name}</strong>`);
+    });
+
+    // Draw a polyline connecting all stops to visualize the journey path
+    const routeLatLngs = stops.map((s) => s.coords);
+    const routeLine = L.polyline(routeLatLngs, {
+      color: "#2874A6",
+      weight: 4,
+      opacity: 0.8,
+      dashArray: "8 8",
+    }).addTo(map);
+
+    // Create a custom div icon for the moving car. A car emoji is used here for simplicity.
+    const carIcon = L.divIcon({
+      html: "🚗",
+      className: "car-icon",
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+
+    // Place the car at the starting point
+    const carMarker = L.marker(stops[0].coords, { icon: carIcon }).addTo(map);
+
+    /**
+     * Animate the marker from a start coordinate to an end coordinate over the given duration.
+     * This uses simple linear interpolation of latitude and longitude.
+     * @param {number[]} start The starting [lat, lng].
+     * @param {number[]} end The ending [lat, lng].
+     * @param {number} duration Duration in milliseconds.
+     */
+    function animateSegment(start, end, duration) {
+      return new Promise((resolve) => {
+        const startTime = performance.now();
+        function step(now) {
+          const elapsed = now - startTime;
+          const t = Math.min(1, elapsed / duration);
+          const lat = start[0] + (end[0] - start[0]) * t;
+          const lng = start[1] + (end[1] - start[1]) * t;
+          carMarker.setLatLng([lat, lng]);
+          if (t < 1) {
+            requestAnimationFrame(step);
+          } else {
+            resolve();
+          }
+        }
+        requestAnimationFrame(step);
+      });
+    }
+
+    // Sequentially animate the car along the entire route
+    async function animateRoute() {
+      for (let i = 1; i < stops.length; i++) {
+        const start = stops[i - 1].coords;
+        const end = stops[i].coords;
+        // Duration in milliseconds to travel between points; adjust speed here
+        const duration = 6000;
+        await animateSegment(start, end, duration);
+        // Show popup at the current stop for user context
+        carMarker.bindPopup(`<strong>${stops[i].name}</strong>`).openPopup();
+        // Pause briefly to allow the user to read the popup
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        carMarker.closePopup();
+      }
+    }
+
+    // Start the animation once the map and scripts have loaded
+    animateRoute();
+  </script>
+</body>
+</html>
